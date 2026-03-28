@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #0a0a0a;
+}
+
+.roadmap-bg {
+  background-image:
+    radial-gradient(circle at top left, rgba(38, 38, 38, 0.7), transparent 28rem),
+    radial-gradient(circle at top right, rgba(23, 23, 23, 0.8), transparent 22rem),
+    linear-gradient(180deg, #0a0a0a 0%, #050505 100%);
+}
+
+.roadmap-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(115, 115, 115, 0.5) transparent;
+}
+
+.roadmap-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.roadmap-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.roadmap-scroll::-webkit-scrollbar-thumb {
+  background: rgba(115, 115, 115, 0.35);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: content-box;
+}
+
+.roadmap-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(163, 163, 163, 0.45);
+  background-clip: content-box;
+}
