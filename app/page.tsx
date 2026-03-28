@@ -1,34 +1,49 @@
 "use client";
 
-import type { HTMLAttributes } from "react";
-import { useState } from "react";
+import type { FormEvent, HTMLAttributes } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Bug, CodeXml, X, Zap } from "lucide-react";
+import { Bug, CodeXml, Pencil, Plus, Trash2, X, Zap } from "lucide-react";
+import seedItems from "../data/board.json";
+
+type RoadmapStatus = "backlog" | "planned" | "in-progress" | "live";
+type RoadmapType = "bug" | "feature";
 
 type RoadmapItem = {
+  id: string;
   title: string;
   description: string;
-  status: "backlog" | "planned" | "in-progress" | "live";
+  status: RoadmapStatus;
   code: string;
-  type: "bug" | "feature";
+  type: RoadmapType;
 };
 
-const items: RoadmapItem[] = [
-  { title: "Dark mode polish", description: "Fix a few contrast issues in secondary buttons and muted text.", status: "backlog", code: "TBD", type: "bug" },
-  { title: "Keyboard shortcuts", description: "J/K to move cards, Esc to close the modal.", status: "backlog", code: "TBD", type: "feature" },
-  { title: "CSV export", description: "Dump the current column to a file for spreadsheets.", status: "backlog", code: "TBD", type: "feature" },
-  { title: "Custom column labels", description: "Let people rename Backlog / Planned / etc. for their workflow.", status: "backlog", code: "TBD", type: "feature" },
-  { title: "Mobile swipe between columns", description: "Horizontal swipe on small screens instead of four skinny columns.", status: "backlog", code: "TBD", type: "feature" },
-  { title: "Empty state copy", description: "Friendlier message when a column has no cards yet.", status: "planned", code: "b2a91c4f", type: "bug" },
-  { title: "Drag and drop between columns", description: "Reorder cards and change status in one motion.", status: "planned", code: "7e3d88a1", type: "feature" },
-  { title: "Due dates on cards", description: "Optional date chip with a soft highlight when overdue.", status: "planned", code: "1f9c62bb", type: "feature" },
-  { title: "Column WIP limits", description: "Show a warning when In Progress exceeds a set number.", status: "in-progress", code: "4d8a0e33", type: "feature" },
-  { title: "Board layout", description: "Four columns, scroll per column, modal for details.", status: "live", code: "TBD", type: "feature" },
-  { title: "Static demo data", description: "Everything ships as hardcoded JSON so the repo runs with zero setup.", status: "live", code: "TBD", type: "feature" },
-];
+type RoadmapDraft = Omit<RoadmapItem, "id">;
 
-const columns: Array<{ status: RoadmapItem["status"]; label: string }> = [
+const STORAGE_KEY = "kanbanish-board:v1";
+
+const emptyDraft: RoadmapDraft = {
+  title: "",
+  description: "",
+  status: "backlog",
+  code: "TBD",
+  type: "feature",
+};
+
+function getSeedItems(): RoadmapItem[] {
+  return (seedItems as RoadmapItem[]).map((item) => ({ ...item }));
+}
+
+function makeId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `card-${Date.now()}`;
+}
+
+const columns: Array<{ status: RoadmapStatus; label: string }> = [
   { status: "backlog", label: "Backlog" },
   { status: "planned", label: "Planned" },
   { status: "in-progress", label: "In Progress" },
@@ -71,19 +86,154 @@ function ItemPill({ item }: { item: RoadmapItem }) {
   );
 }
 
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-2 text-sm font-medium text-neutral-300">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
 export default function Home() {
-  const [selected, setSelected] = useState<RoadmapItem | null>(null);
+  const [items, setItems] = useState<RoadmapItem[]>(() => getSeedItems());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [draft, setDraft] = useState<RoadmapDraft>(emptyDraft);
+  const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
+
+  const selected = useMemo(
+    () => items.find((item) => item.id === selectedId) ?? null,
+    [items, selectedId],
+  );
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as RoadmapItem[];
+        if (Array.isArray(parsed)) {
+          setItems(parsed);
+        }
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+
+    setHasLoadedStorage(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedStorage) {
+      return;
+    }
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [hasLoadedStorage, items]);
+
+  function closeEditor() {
+    setIsCreating(false);
+    setEditingId(null);
+    setDraft(emptyDraft);
+  }
+
+  function openCreate() {
+    setSelectedId(null);
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setIsCreating(true);
+  }
+
+  function openEdit(item: RoadmapItem) {
+    setIsCreating(false);
+    setEditingId(item.id);
+    setDraft({
+      title: item.title,
+      description: item.description,
+      status: item.status,
+      code: item.code,
+      type: item.type,
+    });
+  }
+
+  function handleDraftChange<K extends keyof RoadmapDraft>(key: K, value: RoadmapDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextDraft = {
+      ...draft,
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+      code: draft.code.trim() || "TBD",
+    };
+
+    if (!nextDraft.title || !nextDraft.description) {
+      return;
+    }
+
+    if (editingId) {
+      setItems((current) =>
+        current.map((item) =>
+          item.id === editingId
+            ? {
+                ...item,
+                ...nextDraft,
+              }
+            : item,
+        ),
+      );
+      setSelectedId(editingId);
+    } else {
+      const nextItem: RoadmapItem = {
+        id: makeId(),
+        ...nextDraft,
+      };
+
+      setItems((current) => [nextItem, ...current]);
+      setSelectedId(nextItem.id);
+    }
+
+    closeEditor();
+  }
+
+  function handleDelete(itemId: string) {
+    setItems((current) => current.filter((item) => item.id !== itemId));
+    setSelectedId(null);
+    closeEditor();
+  }
 
   return (
     <main className="roadmap-bg min-h-screen px-6 py-12">
       <div className="mx-auto flex h-[calc(100vh-6rem)] w-full max-w-7xl flex-col">
-        <header className="mb-6">
-          <h1 className="text-4xl font-black tracking-tight text-neutral-100 sm:text-5xl">
-            Kanbanish <span className="font-normal text-neutral-300">Roadmap</span>
-          </h1>
-          <p className="mt-2 text-sm text-neutral-400">
-            Static board rebuild. No backend. No dashboard. Just the roadmap.
-          </p>
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-black tracking-tight text-neutral-100 sm:text-5xl">
+              Kanbanish <span className="font-normal text-neutral-300">Roadmap</span>
+            </h1>
+            <p className="mt-2 text-sm text-neutral-400">
+              Local-first board. No backend. No dashboard. Changes stay in this browser.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/70 px-4 py-2 text-sm font-medium text-neutral-100 transition-colors hover:border-neutral-700 hover:bg-neutral-900"
+            onClick={openCreate}
+          >
+            <Plus size={16} />
+            New Card
+          </button>
         </header>
 
         <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -105,9 +255,9 @@ export default function Home() {
                   ) : (
                     columnItems.map((item) => (
                       <Card
-                        key={`${item.status}-${item.title}`}
+                        key={item.id}
                         className="cursor-pointer transition-colors hover:border-neutral-700 hover:bg-neutral-900/80"
-                        onClick={() => setSelected(item)}
+                        onClick={() => setSelectedId(item.id)}
                       >
                         <span className="block text-sm font-medium leading-relaxed text-neutral-300 transition-colors hover:text-neutral-200">
                           {item.title}
@@ -132,17 +282,19 @@ export default function Home() {
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setSelected(null)}
+          onClick={() => setSelectedId(null)}
         >
           <div
             className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
-              <span className="text-base font-semibold text-neutral-100">{selected.title}</span>
+              <div className="flex-1">
+                <span className="text-base font-semibold text-neutral-100">{selected.title}</span>
+              </div>
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => setSelectedId(null)}
                 className="flex-shrink-0 text-neutral-500 transition-colors hover:text-neutral-300"
                 aria-label="Close dialog"
               >
@@ -161,7 +313,133 @@ export default function Home() {
                 {selected.code}
               </span>
             </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl border border-neutral-800 px-3 py-2 text-sm font-medium text-neutral-200 transition-colors hover:border-neutral-700 hover:bg-neutral-800/70"
+                onClick={() => openEdit(selected)}
+              >
+                <Pencil size={14} />
+                Edit
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl border border-red-950 bg-red-950/40 px-3 py-2 text-sm font-medium text-red-200 transition-colors hover:bg-red-950/60"
+                onClick={() => handleDelete(selected.id)}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {(isCreating || editingId) && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={closeEditor}
+        >
+          <form
+            className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-6"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={handleSave}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-100">
+                  {editingId ? "Edit card" : "New card"}
+                </h2>
+                <p className="mt-1 text-sm text-neutral-400">
+                  Changes are saved in this browser only.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditor}
+                className="flex-shrink-0 text-neutral-500 transition-colors hover:text-neutral-300"
+                aria-label="Close editor"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <FormField label="Title">
+              <input
+                required
+                value={draft.title}
+                onChange={(event) => handleDraftChange("title", event.target.value)}
+                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-neutral-700"
+                placeholder="Card title"
+              />
+            </FormField>
+
+            <FormField label="Description">
+              <textarea
+                required
+                rows={4}
+                value={draft.description}
+                onChange={(event) => handleDraftChange("description", event.target.value)}
+                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-neutral-700"
+                placeholder="What is this card about?"
+              />
+            </FormField>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField label="Status">
+                <select
+                  value={draft.status}
+                  onChange={(event) =>
+                    handleDraftChange("status", event.target.value as RoadmapStatus)
+                  }
+                  className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors focus:border-neutral-700"
+                >
+                  {columns.map((column) => (
+                    <option key={column.status} value={column.status}>
+                      {column.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Type">
+                <select
+                  value={draft.type}
+                  onChange={(event) => handleDraftChange("type", event.target.value as RoadmapType)}
+                  className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors focus:border-neutral-700"
+                >
+                  <option value="feature">Feature</option>
+                  <option value="bug">Fix</option>
+                </select>
+              </FormField>
+            </div>
+
+            <FormField label="Code">
+              <input
+                value={draft.code}
+                onChange={(event) => handleDraftChange("code", event.target.value)}
+                className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-neutral-700"
+                placeholder="TBD"
+              />
+            </FormField>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                className="rounded-xl border border-neutral-800 px-3 py-2 text-sm font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:bg-neutral-800/70"
+                onClick={closeEditor}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-xl bg-neutral-100 px-3 py-2 text-sm font-semibold text-neutral-950 transition-opacity hover:opacity-90"
+              >
+                {editingId ? "Save changes" : "Create card"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </main>

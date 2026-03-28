@@ -1,0 +1,90 @@
+[
+  {
+    "id": "dark-mode-polish",
+    "title": "Dark mode polish",
+    "description": "Fix a few contrast issues in secondary buttons and muted text.",
+    "status": "backlog",
+    "code": "TBD",
+    "type": "bug"
+  },
+  {
+    "id": "keyboard-shortcuts",
+    "title": "Keyboard shortcuts",
+    "description": "J/K to move cards, Esc to close the modal.",
+    "status": "backlog",
+    "code": "TBD",
+    "type": "feature"
+  },
+  {
+    "id": "csv-export",
+    "title": "CSV export",
+    "description": "Dump the current column to a file for spreadsheets.",
+    "status": "backlog",
+    "code": "TBD",
+    "type": "feature"
+  },
+  {
+    "id": "custom-column-labels",
+    "title": "Custom column labels",
+    "description": "Let people rename Backlog / Planned / etc. for their workflow.",
+    "status": "backlog",
+    "code": "TBD",
+    "type": "feature"
+  },
+  {
+    "id": "mobile-swipe-columns",
+    "title": "Mobile swipe between columns",
+    "description": "Horizontal swipe on small screens instead of four skinny columns.",
+    "status": "backlog",
+    "code": "TBD",
+    "type": "feature"
+  },
+  {
+    "id": "empty-state-copy",
+    "title": "Empty state copy",
+    "description": "Friendlier message when a column has no cards yet.",
+    "status": "planned",
+    "code": "b2a91c4f",
+    "type": "bug"
+  },
+  {
+    "id": "drag-drop-columns",
+    "title": "Drag and drop between columns",
+    "description": "Reorder cards and change status in one motion.",
+    "status": "planned",
+    "code": "7e3d88a1",
+    "type": "feature"
+  },
+  {
+    "id": "due-dates",
+    "title": "Due dates on cards",
+    "description": "Optional date chip with a soft highlight when overdue.",
+    "status": "planned",
+    "code": "1f9c62bb",
+    "type": "feature"
+  },
+  {
+    "id": "wip-limits",
+    "title": "Column WIP limits",
+    "description": "Show a warning when In Progress exceeds a set number.",
+    "status": "in-progress",
+    "code": "4d8a0e33",
+    "type": "feature"
+  },
+  {
+    "id": "board-layout",
+    "title": "Board layout",
+    "description": "Four columns, scroll per column, modal for details.",
+    "status": "live",
+    "code": "TBD",
+    "type": "feature"
+  },
+  {
+    "id": "local-first-demo-data",
+    "title": "Local-first demo data",
+    "description": "The board ships with seed data and saves edits in the current browser with no backend setup.",
+    "status": "live",
+    "code": "TBD",
+    "type": "feature"
+  }
+]
